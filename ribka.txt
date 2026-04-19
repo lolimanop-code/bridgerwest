@@ -104,7 +104,7 @@ local function startRodControl()
     rodMonitorConnection = character.ChildRemoved:Connect(function(child)
         if child:IsA("Tool") and child.Name == FishingRodName then
             print("[⚠️] Удочка убрана из рук! Возвращаю...")
-            task.wait(1.5)
+            task.wait(0.1)
             forceEquipRod()
         end
     end)

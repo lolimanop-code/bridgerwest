@@ -104,14 +104,14 @@ local function startRodControl()
     rodMonitorConnection = character.ChildRemoved:Connect(function(child)
         if child:IsA("Tool") and child.Name == FishingRodName then
             print("[⚠️] Удочка убрана из рук! Возвращаю...")
-            task.wait(0.1)
+            task.wait(0.5)
             forceEquipRod()
         end
     end)
     
     periodicThread = task.spawn(function()
         while autoMode do
-            task.wait(2)
+            task.wait(5)
             if autoMode and LocalPlayer.Character then
                 if not isRodInHands() and LocalPlayer.Backpack:FindFirstChild(FishingRodName) then
                     print("[🔧] Удочка не в руках! Исправляю...")
@@ -328,7 +328,7 @@ local function clickCenterScreen()
     local centerY = viewportSize.Y / 2
     
     VirtualInputManager:SendMouseButtonEvent(centerX, centerY - (centerY / 2), 0, true, game, 1)
-    task.wait(0.05)
+    task.wait(0.01)
     VirtualInputManager:SendMouseButtonEvent(centerX, centerY - (centerY / 2), 0, false, game, 1)
     
     print("[КЛИК] Нажатие в центр экрана")
@@ -504,17 +504,19 @@ local function waitForBite(bobber)
     while autoMode and splash and splash.Parent do
         local distance = (splash.Position - bobber.Position).Magnitude
         
-        if distance < 0.5 then
+        if distance < 0.6 then
             print("[🐟] Сплеш у поплавка! Клюёт!")
             clickCenterScreen()
-            task.wait(0.1)
+            task.wait(0.08)
             clickCenterScreen()
-            task.wait(0.1)
+            task.wait(0.08)
+            clickCenterScreen()
+			task.wait(0.08)
             clickCenterScreen()
             return true
         end
         
-        task.wait(0.05)
+        task.wait(0.03)
     end
     
     return false

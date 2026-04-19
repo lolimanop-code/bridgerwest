@@ -104,20 +104,8 @@ local function startRodControl()
     rodMonitorConnection = character.ChildRemoved:Connect(function(child)
         if child:IsA("Tool") and child.Name == FishingRodName then
             print("[⚠️] Удочка убрана из рук! Возвращаю...")
-            task.wait(0.5)
+            task.wait(1.5)
             forceEquipRod()
-        end
-    end)
-    
-    periodicThread = task.spawn(function()
-        while autoMode do
-            task.wait(5)
-            if autoMode and LocalPlayer.Character then
-                if not isRodInHands() and LocalPlayer.Backpack:FindFirstChild(FishingRodName) then
-                    print("[🔧] Удочка не в руках! Исправляю...")
-                    forceEquipRod()
-                end
-            end
         end
     end)
 end

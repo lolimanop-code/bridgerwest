@@ -153,6 +153,7 @@ local function savePlayerPosition()
     return false
 end
 
+-- Функция для получения безопасной высоты (чтобы не провалиться)
 local function teleportToSavedPosition()
     if not savedPosition or savedRotation == nil then
         print("[ОШИБКА] Нет сохранённой позиции или поворота!")
@@ -161,18 +162,26 @@ local function teleportToSavedPosition()
     
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('HumanoidRootPart') then
         local rootPart = LocalPlayer.Character.HumanoidRootPart
-        local endPosition = CFrame.new(savedPosition.X, savedPosition.Y + 2, savedPosition.Z) * CFrame.Angles(0, savedRotation, 0)
+        
+        -- ИСПОЛЬЗУЕМ ТОЧНО ТУ ЖЕ ВЫСОТУ Y, ЧТО БЫЛА СОХРАНЕНА (даже если под землей)
+        local endPosition = CFrame.new(savedPosition.X, savedPosition.Y, savedPosition.Z) * CFrame.Angles(0, savedRotation, 0)
         local goal = {CFrame = endPosition}
         local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quart)
         local tween = TweenService:Create(rootPart, tweenInfo, goal)
         tween:Play()
         tween.Completed:Wait()
-        print("[ТЕЛЕПОРТАЦИЯ] Возврат на сохранённую позицию")
+        
+        -- Гасим скорость после твина чтобы не улететь
+        rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        
+        print("[ТЕЛЕПОРТАЦИЯ] Возврат на сохранённую позицию (Y без изменений):", savedPosition.Y)
         return true
     end
     return false
 end
 
+-- 2. ПЕРЕМЕЩЕНИЕ ВЛЕВО/ВПРАВО ЧЕРЕЗ ТВИН БЕЗ ИЗМЕНЕНИЯ ВЫСОТЫ
 local function movePlayer(direction)
     print("[ДВИЖЕНИЕ] Начинаю перемещение...")
 
@@ -182,6 +191,7 @@ local function movePlayer(direction)
     
     local rootPart = LocalPlayer.Character.HumanoidRootPart
     local currentCFrame = rootPart.CFrame
+    local currentY = currentCFrame.Position.Y  -- ЗАПОМИНАЕМ ТЕКУЩУЮ ВЫСОТУ
     local _, yRotation, _ = currentCFrame:ToOrientation()
     
     local moveOffset
@@ -193,8 +203,10 @@ local function movePlayer(direction)
         print("[ДВИЖЕНИЕ] Перемещаюсь ВПРАВО на", MOVE_DISTANCE, "studs")
     end
     
-    local newPosition = currentCFrame.Position + moveOffset + Vector3.new(0, 2, 0)
-    local endPosition = CFrame.new(newPosition) * CFrame.Angles(0, yRotation, 0)
+    local newPos = currentCFrame.Position + moveOffset
+    
+    -- СОХРАНЯЕМ ТЕКУЩУЮ ВЫСОТУ Y, НЕ ПЫТАЕМСЯ ПОДНЯТЬ ПЕРСОНАЖА
+    local endPosition = CFrame.new(newPos.X, currentY, newPos.Z) * CFrame.Angles(0, yRotation, 0)
     local goal = {CFrame = endPosition}
     
     local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quart)
@@ -202,7 +214,11 @@ local function movePlayer(direction)
     tween:Play()
     tween.Completed:Wait()
     
-    print("[ДВИЖЕНИЕ] Перемещение завершено")
+    -- Гасим скорость после твина
+    rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    print("[ДВИЖЕНИЕ] Перемещение завершено. Y остался:", currentY)
     return true
 end
 

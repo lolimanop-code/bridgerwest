@@ -569,16 +569,15 @@ local function waitForBite(bobber)
         if distance < 0.6 then
             print("[🐟] Сплеш у поплавка! Клюёт!")
             clickCenterScreen()
-            task.wait(0.08)
+            task.wait(0.05)
             clickCenterScreen()
-            task.wait(0.08)
+            task.wait(0.05)
             clickCenterScreen()
-			task.wait(0.08)
-            clickCenterScreen()
+
             return true
         end
         
-        task.wait(0.03)
+        task.wait(0.02)
     end
     
     return false

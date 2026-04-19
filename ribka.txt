@@ -104,7 +104,7 @@ local function startRodControl()
     rodMonitorConnection = character.ChildRemoved:Connect(function(child)
         if child:IsA("Tool") and child.Name == FishingRodName then
             print("[⚠️] Удочка убрана из рук! Возвращаю...")
-            task.wait(1.5)
+            task.wait(0.1)
             forceEquipRod()
         end
     end)
@@ -215,7 +215,7 @@ local function teleportToSavedPosition()
         forceTeleportToSavedPosition()
         
         -- Ждём кадр для обновления физики
-        task.wait(0.1)
+        task.wait(0.05) -- Было 0.1, уменьшил
         
         if isNearSavedPosition(acceptableDistance) then
             print("[ТЕЛЕПОРТ] ✅ Успешно! Игрок на позиции (попытка", attempt, ")")
@@ -230,7 +230,7 @@ local function teleportToSavedPosition()
             
             if attempt < maxAttempts then
                 print("[ТЕЛЕПОРТ] 🔄 Пробую снова...")
-                task.wait(0.3)
+                task.wait(0.15) -- Было 0.3, уменьшил
             end
         end
     end
@@ -591,7 +591,7 @@ local function doOneFishingCycle()
     if not isRodInHands() then
         print("[⚠️] Удочка не в руках перед циклом! Экипирую...")
         forceEquipRod()
-        task.wait(0.5)
+        task.wait(0.3)
     end
     
     isFishing = true
@@ -600,12 +600,12 @@ local function doOneFishingCycle()
     clickCenterScreen()
     
     print("[⏳] Ожидание поплавка...")
-    startSpammingE()
+    
     -- Ждём появления поплавка с таймаутом
     local bobber = nil
     local distance = nil
     local waitTime = 0
-    local maxWaitTime = 10 -- Максимальное время ожидания поплавка
+    local maxWaitTime = 3.5 -- Было 10, вернул 3.5
     
     while waitTime < maxWaitTime and autoMode do
         bobber, distance = getClosestBobber()
@@ -613,8 +613,8 @@ local function doOneFishingCycle()
             print("[✅] Поплавок появился через", string.format("%.1f", waitTime), "сек")
             break
         end
-        task.wait(0.3)
-        waitTime = waitTime + 0.3
+        task.wait(0.2) -- Было 0.3, уменьшил для скорости
+        waitTime = waitTime + 0.2
     end
     
     -- Если поплавок так и не появился - удочка глюканула
@@ -628,13 +628,13 @@ local function doOneFishingCycle()
             local currentTool = character:FindFirstChildOfClass("Tool")
             if currentTool then
                 humanoid:UnequipTools()
-                task.wait(0.3)
+                task.wait(0.2)
             end
         end
         
         -- Экипируем заново
         forceEquipRod()
-        task.wait(0.5)
+        task.wait(0.3)
         
         isFishing = false
         return false -- Возвращаем false, цикл начнётся заново
@@ -646,6 +646,7 @@ local function doOneFishingCycle()
     print("📏 Расстояние:", string.format("%.1f", distance), "studs")
     print("========================================")
     
+    startSpammingE()
     
     local biteSuccess = waitForBite(bobber)
     
@@ -658,7 +659,7 @@ local function doOneFishingCycle()
     end
     
     print("[QTE] Проверка наличия QTE...")
-    task.wait(0.5)
+    task.wait(0.3) -- Было 0.5, уменьшил
     
     local qteSuccess = handleQTE()
     

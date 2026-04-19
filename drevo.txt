@@ -84,7 +84,7 @@ local UserInputService = game:GetService("UserInputService")
 local isRunning = false
 local loopCoroutine = nil
 
-local TOGGLE_KEY = Enum.KeyCode.K
+local TOGGLE_KEY = Enum.KeyCode.L
 
 local function stopLoop()
     if isRunning then

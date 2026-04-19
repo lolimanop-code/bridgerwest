@@ -154,30 +154,88 @@ local function savePlayerPosition()
 end
 
 -- Функция для получения безопасной высоты (чтобы не провалиться)
+-- Проверка, находится ли игрок рядом с сохранённой позицией
+local function isNearSavedPosition(maxDistance)
+    if not savedPosition then return false end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local rootPart = character.HumanoidRootPart
+    local distance = (rootPart.Position - savedPosition).Magnitude
+    
+    return distance <= maxDistance
+end
+
+-- Принудительный телепорт с проверкой результата
+local function forceTeleportToSavedPosition()
+    if not savedPosition or savedRotation == nil then
+        print("[ОШИБКА] Нет сохранённой позиции или поворота!")
+        return false
+    end
+    
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild('HumanoidRootPart') then
+        return false
+    end
+    
+    local rootPart = LocalPlayer.Character.HumanoidRootPart
+    local endPosition = CFrame.new(savedPosition.X, savedPosition.Y, savedPosition.Z) * CFrame.Angles(0, savedRotation, 0)
+    local goal = {CFrame = endPosition}
+    local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quart)
+    local tween = TweenService:Create(rootPart, tweenInfo, goal)
+    tween:Play()
+    tween.Completed:Wait()
+    
+    -- Гасим скорость после твина
+    rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    -- Проверяем, где мы оказались
+    local actualDistance = (rootPart.Position - savedPosition).Magnitude
+    print("[ТЕЛЕПОРТ] Фактическое расстояние до цели:", string.format("%.1f", actualDistance), "studs")
+    
+    return true
+end
+
+-- Основная функция телепортации с повторными попытками
 local function teleportToSavedPosition()
     if not savedPosition or savedRotation == nil then
         print("[ОШИБКА] Нет сохранённой позиции или поворота!")
         return false
     end
     
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('HumanoidRootPart') then
-        local rootPart = LocalPlayer.Character.HumanoidRootPart
+    local maxAttempts = 3
+    local acceptableDistance = 5 -- Допустимое расстояние в studs
+    
+    for attempt = 1, maxAttempts do
+        print("[ТЕЛЕПОРТ] Попытка", attempt, "из", maxAttempts)
         
-        -- ИСПОЛЬЗУЕМ ТОЧНО ТУ ЖЕ ВЫСОТУ Y, ЧТО БЫЛА СОХРАНЕНА (даже если под землей)
-        local endPosition = CFrame.new(savedPosition.X, savedPosition.Y, savedPosition.Z) * CFrame.Angles(0, savedRotation, 0)
-        local goal = {CFrame = endPosition}
-        local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quart)
-        local tween = TweenService:Create(rootPart, tweenInfo, goal)
-        tween:Play()
-        tween.Completed:Wait()
+        forceTeleportToSavedPosition()
         
-        -- Гасим скорость после твина чтобы не улететь
-        rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        -- Ждём кадр для обновления физики
+        task.wait(0.1)
         
-        print("[ТЕЛЕПОРТАЦИЯ] Возврат на сохранённую позицию (Y без изменений):", savedPosition.Y)
-        return true
+        if isNearSavedPosition(acceptableDistance) then
+            print("[ТЕЛЕПОРТ] ✅ Успешно! Игрок на позиции (попытка", attempt, ")")
+            return true
+        else
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local currentPos = character.HumanoidRootPart.Position
+                local diff = (currentPos - savedPosition).Magnitude
+                print("[ТЕЛЕПОРТ] ❌ Промах! Расстояние:", string.format("%.1f", diff), "studs")
+            end
+            
+            if attempt < maxAttempts then
+                print("[ТЕЛЕПОРТ] 🔄 Пробую снова...")
+                task.wait(0.3)
+            end
+        end
     end
+    
+    print("[ТЕЛЕПОРТ] ⚠️ Не удалось телепортироваться после", maxAttempts, "попыток")
     return false
 end
 
@@ -529,20 +587,57 @@ end
 local function doOneFishingCycle()
     if not autoMode then return false end
     
+    -- Проверяем, экипирована ли удочка перед началом
+    if not isRodInHands() then
+        print("[⚠️] Удочка не в руках перед циклом! Экипирую...")
+        forceEquipRod()
+        task.wait(0.5)
+    end
+    
     isFishing = true
     print("[🎣] Заброс удочки...")
     
     clickCenterScreen()
     
     print("[⏳] Ожидание поплавка...")
-    task.wait(2)
+    startSpammingE()
+    -- Ждём появления поплавка с таймаутом
+    local bobber = nil
+    local distance = nil
+    local waitTime = 0
+    local maxWaitTime = 10 -- Максимальное время ожидания поплавка
     
-    local bobber, distance = getClosestBobber()
+    while waitTime < maxWaitTime and autoMode do
+        bobber, distance = getClosestBobber()
+        if bobber then
+            print("[✅] Поплавок появился через", string.format("%.1f", waitTime), "сек")
+            break
+        end
+        task.wait(0.3)
+        waitTime = waitTime + 0.3
+    end
     
+    -- Если поплавок так и не появился - удочка глюканула
     if not bobber then
-        print("[❌] Поплавок не найден!")
+        print("[❌] Поплавок не появился! Удочка не сработала.")
+        print("[🔄] Переэкипирую удочку и пробую снова...")
+        
+        -- Сбрасываем текущий инструмент
+        local character = LocalPlayer.Character
+        if character then
+            local currentTool = character:FindFirstChildOfClass("Tool")
+            if currentTool then
+                humanoid:UnequipTools()
+                task.wait(0.3)
+            end
+        end
+        
+        -- Экипируем заново
+        forceEquipRod()
+        task.wait(0.5)
+        
         isFishing = false
-        return false
+        return false -- Возвращаем false, цикл начнётся заново
     end
     
     print("========================================")
@@ -551,7 +646,6 @@ local function doOneFishingCycle()
     print("📏 Расстояние:", string.format("%.1f", distance), "studs")
     print("========================================")
     
-    startSpammingE()
     
     local biteSuccess = waitForBite(bobber)
     

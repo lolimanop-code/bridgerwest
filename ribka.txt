@@ -596,7 +596,17 @@ local function doOneFishingCycle()
     isFishing = true
     print("[🎣] Заброс удочки...")
     
-    clickCenterScreen()
+    -- Проверяем, нет ли уже поплавка в воде (вдруг удочка уже закинута)
+    local existingBobber = getClosestBobber()
+    if existingBobber then
+        print("[⚠️] Поплавок уже в воде! Пропускаю заброс...")
+    else
+        -- Делаем ТОЛЬКО ОДИН клик для заброса
+        clickCenterScreen()
+        
+        -- Ждём минимальное время чтобы не нажать случайно ещё раз
+        task.wait(0.5)
+    end
     
     print("[⏳] Ожидание поплавка...")
     
@@ -604,7 +614,7 @@ local function doOneFishingCycle()
     local bobber = nil
     local distance = nil
     local waitTime = 0
-    local maxWaitTime = 3.5 -- Было 10, вернул 3.5
+    local maxWaitTime = 3.5
     
     while waitTime < maxWaitTime and autoMode do
         bobber, distance = getClosestBobber()
@@ -612,7 +622,7 @@ local function doOneFishingCycle()
             print("[✅] Поплавок появился через", string.format("%.1f", waitTime), "сек")
             break
         end
-        task.wait(0.2) -- Было 0.3, уменьшил для скорости
+        task.wait(0.2)
         waitTime = waitTime + 0.2
     end
     
@@ -636,7 +646,7 @@ local function doOneFishingCycle()
         task.wait(0.3)
         
         isFishing = false
-        return false -- Возвращаем false, цикл начнётся заново
+        return false
     end
     
     print("========================================")
@@ -645,20 +655,25 @@ local function doOneFishingCycle()
     print("📏 Расстояние:", string.format("%.1f", distance), "studs")
     print("========================================")
     
+    -- Запускаем спам E только ПОСЛЕ того как поплавок точно в воде
     startSpammingE()
     
     local biteSuccess = waitForBite(bobber)
     
+    -- СРАЗУ останавливаем спам E после поклёвки
     stopSpammingE()
     
     if not biteSuccess then
         isFishing = false
         print("[⚠️] Поклёвки не произошло")
+        
+        -- Ждём чтобы удочка смоталась
+        task.wait(0.5)
         return false
     end
     
     print("[QTE] Проверка наличия QTE...")
-    task.wait(0.3) -- Было 0.5, уменьшил
+    task.wait(0.3)
     
     local qteSuccess = handleQTE()
     
@@ -667,6 +682,9 @@ local function doOneFishingCycle()
     else
         print("[⚠️] QTE не появилось или не пройдено")
     end
+    
+    -- Ждём завершения анимации вылова
+    task.wait(0.3)
     
     isFishing = false
     return true

@@ -12,14 +12,11 @@ local currentThread = nil
 local isSpammingE = false
 local spamConnection = nil
 
--- Переменные для сохранения позиции
 local savedPosition = nil
 local savedRotation = nil
 
--- Переменные для движения при испуганной рыбе
 local moveDirection = "left"
 
--- Поток для отслеживания уведомлений
 local spookedThread = nil
 local spookedRunning = false
 
@@ -28,19 +25,18 @@ local chests = workspace.Chests
 local MOVE_DISTANCE = 10
 local TWEEN_TIME = 2
 
--- Настройки: укажи точное название удочки в игре
 local FishingRodName = "FishingRod"
 
--- Основная логика
 local humanoid = nil
 local backpack = nil
 
--- Переменные для контроля удочки
 local isEquipping = false
 local rodMonitorConnection = nil
 local periodicThread = nil
 
--- Функция обновления ссылок на живого персонажа
+local characterAddedConnection = nil
+local chestsDescendantConnection = nil
+
 local function updateReferences()
     local character = LocalPlayer.Character
     if not character then return false end
@@ -50,8 +46,6 @@ local function updateReferences()
     
     return humanoid ~= nil and backpack ~= nil
 end
-
--- ============ КОНТРОЛЬ УДОЧКИ ============
 
 local function isRodInHands()
     local character = LocalPlayer.Character
@@ -110,8 +104,6 @@ local function startRodControl()
     end)
 end
 
--- ============ ОСНОВНЫЕ ФУНКЦИИ ============
-
 local function instantPrompts()
     for _, v in ipairs(chests:GetDescendants()) do
         if v:IsA("ProximityPrompt") then
@@ -122,7 +114,10 @@ end
 
 instantPrompts()
 
-chests.DescendantAdded:Connect(function(desc)
+if chestsDescendantConnection then
+    chestsDescendantConnection:Disconnect()
+end
+chestsDescendantConnection = chests.DescendantAdded:Connect(function(desc)
     if desc:IsA("ProximityPrompt") then
         desc.HoldDuration = 0
     end
@@ -153,8 +148,6 @@ local function savePlayerPosition()
     return false
 end
 
--- Функция для получения безопасной высоты (чтобы не провалиться)
--- Проверка, находится ли игрок рядом с сохранённой позицией
 local function isNearSavedPosition(maxDistance)
     if not savedPosition then return false end
     
@@ -169,7 +162,6 @@ local function isNearSavedPosition(maxDistance)
     return distance <= maxDistance
 end
 
--- Принудительный телепорт с проверкой результата
 local function forceTeleportToSavedPosition()
     if not savedPosition or savedRotation == nil then
         print("[ОШИБКА] Нет сохранённой позиции или поворота!")
@@ -188,18 +180,15 @@ local function forceTeleportToSavedPosition()
     tween:Play()
     tween.Completed:Wait()
     
-    -- Гасим скорость после твина
     rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
     rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     
-    -- Проверяем, где мы оказались
     local actualDistance = (rootPart.Position - savedPosition).Magnitude
     print("[ТЕЛЕПОРТ] Фактическое расстояние до цели:", string.format("%.1f", actualDistance), "studs")
     
     return true
 end
 
--- Основная функция телепортации с повторными попытками
 local function teleportToSavedPosition()
     if not savedPosition or savedRotation == nil then
         print("[ОШИБКА] Нет сохранённой позиции или поворота!")
@@ -207,15 +196,14 @@ local function teleportToSavedPosition()
     end
     
     local maxAttempts = 3
-    local acceptableDistance = 5 -- Допустимое расстояние в studs
+    local acceptableDistance = 5
     
     for attempt = 1, maxAttempts do
         print("[ТЕЛЕПОРТ] Попытка", attempt, "из", maxAttempts)
         
         forceTeleportToSavedPosition()
         
-        -- Ждём кадр для обновления физики
-        task.wait(0.05) -- Было 0.1, уменьшил
+        task.wait(0.05)
         
         if isNearSavedPosition(acceptableDistance) then
             print("[ТЕЛЕПОРТ] ✅ Успешно! Игрок на позиции (попытка", attempt, ")")
@@ -230,7 +218,7 @@ local function teleportToSavedPosition()
             
             if attempt < maxAttempts then
                 print("[ТЕЛЕПОРТ] 🔄 Пробую снова...")
-                task.wait(0.15) -- Было 0.3, уменьшил
+                task.wait(0.15)
             end
         end
     end
@@ -239,7 +227,6 @@ local function teleportToSavedPosition()
     return false
 end
 
--- 2. ПЕРЕМЕЩЕНИЕ ВЛЕВО/ВПРАВО ЧЕРЕЗ ТВИН БЕЗ ИЗМЕНЕНИЯ ВЫСОТЫ
 local function movePlayer(direction)
     print("[ДВИЖЕНИЕ] Начинаю перемещение...")
 
@@ -249,7 +236,7 @@ local function movePlayer(direction)
     
     local rootPart = LocalPlayer.Character.HumanoidRootPart
     local currentCFrame = rootPart.CFrame
-    local currentY = currentCFrame.Position.Y  -- ЗАПОМИНАЕМ ТЕКУЩУЮ ВЫСОТУ
+    local currentY = currentCFrame.Position.Y
     local _, yRotation, _ = currentCFrame:ToOrientation()
     
     local moveOffset
@@ -262,8 +249,6 @@ local function movePlayer(direction)
     end
     
     local newPos = currentCFrame.Position + moveOffset
-    
-    -- СОХРАНЯЕМ ТЕКУЩУЮ ВЫСОТУ Y, НЕ ПЫТАЕМСЯ ПОДНЯТЬ ПЕРСОНАЖА
     local endPosition = CFrame.new(newPos.X, currentY, newPos.Z) * CFrame.Angles(0, yRotation, 0)
     local goal = {CFrame = endPosition}
     
@@ -272,7 +257,6 @@ local function movePlayer(direction)
     tween:Play()
     tween.Completed:Wait()
     
-    -- Гасим скорость после твина
     rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
     rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     
@@ -316,66 +300,41 @@ end
 
 local function stopSpookedThread()
     spookedRunning = false
-    spookedThread = nil
+    if spookedThread then
+        task.cancel(spookedThread)
+        spookedThread = nil
+    end
     print("[SPOOKED] Поток отслеживания остановлен")
 end
 
 local function spooked()
-    print("[SPOOKED] Ожидание появления NotifierGui...")
-    
-    while not LocalPlayer.PlayerGui:FindFirstChild("NotifierGui") and spookedRunning do
-        task.wait(1)
-    end
-    
-    if not spookedRunning then return end
-    
-    local notifierGui = LocalPlayer.PlayerGui:FindFirstChild("NotifierGui")
-    if not notifierGui then return end
-    
-    print("[SPOOKED] NotifierGui найден!")
-    
-    local messageContainer = nil
-    while not messageContainer and spookedRunning do
-        messageContainer = notifierGui:FindFirstChild("MessageContainer")
-        if not messageContainer then
-            task.wait(0.5)
-        end
-    end
-    
-    if not spookedRunning then return end
-    print("[SPOOKED] MessageContainer найден!")
-
-    local function findTargetNotification()
-        for _, child in ipairs(messageContainer:GetChildren()) do
-            if child.Name == "Notification" or child.Name == "notification" then
-                local need = "The fish here are spooked. Move to a new spot!"
-                if child.Text == need then
-                    print("[SPOOKED] Найдено уведомление об испуганной рыбе!")
-                    return true
+    while spookedRunning do
+        local notifierGui = LocalPlayer.PlayerGui:FindFirstChild("NotifierGui")
+        if notifierGui then
+            local messageContainer = notifierGui:FindFirstChild("MessageContainer")
+            if messageContainer then
+                local found = false
+                for _, child in ipairs(messageContainer:GetChildren()) do
+                    if child.Name == "Notification" or child.Name == "notification" then
+                        if child.Text == "The fish here are spooked. Move to a new spot!" then
+                            print("[SPOOKED] Найдено уведомление об испуганной рыбе!")
+                            handleNotification()
+                            found = true
+                            break
+                        end
+                    end
+                end
+                if found then
+                    task.wait(2)
                 end
             end
         end
-        return false
+        task.wait(1) -- было 0.5, но логика та же, просто реже проверка
     end
-
-    print("[SPOOKED] Начинаю бесконечный цикл проверки уведомлений...")
-    
-    while spookedRunning do
-        if findTargetNotification() then
-            print("[SPOOKED] Обнаружено уведомление! Вызываю handleNotification()")
-            handleNotification()
-            task.wait(2)
-        end
-        task.wait(0.5)
-    end
-    
-    print("[SPOOKED] Поток отслеживания завершён")
 end
 
 local function startSpookedThread()
-    if spookedThread then
-        stopSpookedThread()
-    end
+    stopSpookedThread()
     
     spookedRunning = true
     spookedThread = task.spawn(function()
@@ -573,11 +532,10 @@ local function waitForBite(bobber)
             clickCenterScreen()
             task.wait(0.05)
             clickCenterScreen()
-
             return true
         end
         
-        task.wait(0.02)
+        task.wait(0.05) -- было 0.02, но всё ещё быстро и без утечки
     end
     
     return false
@@ -586,7 +544,6 @@ end
 local function doOneFishingCycle()
     if not autoMode then return false end
     
-    -- Проверяем, экипирована ли удочка перед началом
     if not isRodInHands() then
         print("[⚠️] Удочка не в руках перед циклом! Экипирую...")
         forceEquipRod()
@@ -596,21 +553,16 @@ local function doOneFishingCycle()
     isFishing = true
     print("[🎣] Заброс удочки...")
     
-    -- Проверяем, нет ли уже поплавка в воде (вдруг удочка уже закинута)
     local existingBobber = getClosestBobber()
     if existingBobber then
         print("[⚠️] Поплавок уже в воде! Пропускаю заброс...")
     else
-        -- Делаем ТОЛЬКО ОДИН клик для заброса
         clickCenterScreen()
-        
-        -- Ждём минимальное время чтобы не нажать случайно ещё раз
         task.wait(0.5)
     end
     
     print("[⏳] Ожидание поплавка...")
     
-    -- Ждём появления поплавка с таймаутом
     local bobber = nil
     local distance = nil
     local waitTime = 0
@@ -626,12 +578,10 @@ local function doOneFishingCycle()
         waitTime = waitTime + 0.2
     end
     
-    -- Если поплавок так и не появился - удочка глюканула
     if not bobber then
         print("[❌] Поплавок не появился! Удочка не сработала.")
         print("[🔄] Переэкипирую удочку и пробую снова...")
         
-        -- Сбрасываем текущий инструмент
         local character = LocalPlayer.Character
         if character then
             local currentTool = character:FindFirstChildOfClass("Tool")
@@ -641,7 +591,6 @@ local function doOneFishingCycle()
             end
         end
         
-        -- Экипируем заново
         forceEquipRod()
         task.wait(0.3)
         
@@ -655,19 +604,15 @@ local function doOneFishingCycle()
     print("📏 Расстояние:", string.format("%.1f", distance), "studs")
     print("========================================")
     
-    -- Запускаем спам E только ПОСЛЕ того как поплавок точно в воде
     startSpammingE()
     
     local biteSuccess = waitForBite(bobber)
     
-    -- СРАЗУ останавливаем спам E после поклёвки
     stopSpammingE()
     
     if not biteSuccess then
         isFishing = false
         print("[⚠️] Поклёвки не произошло")
-        
-        -- Ждём чтобы удочка смоталась
         task.wait(0.5)
         return false
     end
@@ -683,14 +628,12 @@ local function doOneFishingCycle()
         print("[⚠️] QTE не появилось или не пройдено")
     end
     
-    -- Ждём завершения анимации вылова
     task.wait(0.3)
     
     isFishing = false
     return true
 end
 
--- Запуск авторежима
 function startAutoFishing()
     if autoMode then
         print("[⚠️] Авторежим уже запущен")
@@ -723,7 +666,6 @@ function startAutoFishing()
     end)
 end
 
--- Остановка авторежима
 local function stopAutoFishing()
     if not autoMode then
         print("[ℹ️] Авторежим не был запущен")
@@ -733,14 +675,19 @@ local function stopAutoFishing()
     print("[🛑] Останавливаю авторежим...")
     autoMode = false
     isFishing = false
+    
     stopSpammingE()
     stopSpookedThread()
     stopRodControl()
     
+    if currentThread then
+        task.cancel(currentThread)
+        currentThread = nil
+    end
+    
     task.wait(0.5)
 end
 
--- Обработка клавиши K
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -753,8 +700,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Когда персонаж появляется
-LocalPlayer.CharacterAdded:Connect(function(character)
+if characterAddedConnection then
+    characterAddedConnection:Disconnect()
+end
+characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character)
     print("[🔄] Персонаж появился, обновляю ссылки...")
     character:WaitForChild("Humanoid")
     task.wait(0.1)
@@ -771,7 +720,7 @@ LocalPlayer.CharacterAdded:Connect(function(character)
 end)
 
 print("========================================")
-print("🤖 РЫБАЛКА АВТОМАТ v8")
+print("🤖 РЫБАЛКА АВТОМАТ v8 — БЕЗ УТЕЧЕК")
 print("📁 Поиск: Part + WaterSplashContainer")
 print("🎮 QTE: MashingSystem.Container")
 print("📢 NotifierGui.MessageContainer.Notification")

@@ -719,13 +719,10 @@ characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character
     end
 end)
 
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-
 local CHECK_INTERVAL = 300
 
 local function getChar()
-    return LP.Character
+    return LocalPlayer.Character
 end
 
 -- Бесконечный цикл (работает всегда)

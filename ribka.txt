@@ -790,7 +790,7 @@ task.spawn(function()
     end
 end)
 
-print("[AUTO SELL] Запущен. Продажа каждые " .. CHECK_INTERVAL .. " секунд")
+
 
 print("========================================")
 print("🤖 РЫБАЛКА АВТОМАТ v8 — БЕЗ УТЕЧЕК")

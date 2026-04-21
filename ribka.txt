@@ -719,6 +719,56 @@ characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character
     end
 end)
 
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+local CHECK_INTERVAL = 300
+
+local function getChar()
+    return LP.Character
+end
+
+-- Бесконечный цикл (работает всегда)
+task.spawn(function()
+    while true do
+        -- Получаем remote и NPC
+        local sellRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        if sellRemote then sellRemote = sellRemote:FindFirstChild("DialogueRemote") end
+        
+        local daniel = workspace:FindFirstChild("NPC")
+        if daniel then daniel = daniel:FindFirstChild("Daniel") end
+        
+        if sellRemote and daniel then
+            local ignoredTools = {FishingRod=true, AmmoPack=true, Stand=true}
+            
+            -- Продажа из рюкзака
+            if LP.Backpack then
+                for _, tool in ipairs(LP.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") and not ignoredTools[tool.Name] and not tool:FindFirstChild("AmmoInClip") then
+                        pcall(function() sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel) end)
+                        task.wait(0.05)
+                    end
+                end
+            end
+            
+            -- Продажа из рук
+            local c = getChar()
+            if c then
+                for _, tool in ipairs(c:GetChildren()) do
+                    if tool:IsA("Tool") and not ignoredTools[tool.Name] and not tool:FindFirstChild("AmmoInClip") then
+                        pcall(function() sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel) end)
+                        task.wait(0.05)
+                    end
+                end
+            end
+        end
+        
+        task.wait(CHECK_INTERVAL) -- Ждём минуту перед следующим запуском
+    end
+end)
+
+print("[AUTO SELL] Запущен. Продажа каждые " .. CHECK_INTERVAL .. " секунд")
+
 print("========================================")
 print("🤖 РЫБАЛКА АВТОМАТ v8 — БЕЗ УТЕЧЕК")
 print("📁 Поиск: Part + WaterSplashContainer")

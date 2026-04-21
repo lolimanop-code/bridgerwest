@@ -728,39 +728,64 @@ end
 -- Бесконечный цикл (работает всегда)
 task.spawn(function()
     while true do
-        -- Получаем remote и NPC
-        local sellRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-        if sellRemote then sellRemote = sellRemote:FindFirstChild("DialogueRemote") end
+        -- Получаем remote и NPC заново каждый раз (на случай перезагрузки)
+        local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        local sellRemote = remotes and remotes:FindFirstChild("DialogueRemote")
         
-        local daniel = workspace:FindFirstChild("NPC")
-        if daniel then daniel = daniel:FindFirstChild("Daniel") end
+        local npcFolder = workspace:FindFirstChild("NPC")
+        local daniel = npcFolder and npcFolder:FindFirstChild("Daniel")
         
         if sellRemote and daniel then
             local ignoredTools = {FishingRod=true, AmmoPack=true, Stand=true}
+            local soldCount = 0
             
             -- Продажа из рюкзака
             if LP.Backpack then
+                local toolsToSell = {}
                 for _, tool in ipairs(LP.Backpack:GetChildren()) do
                     if tool:IsA("Tool") and not ignoredTools[tool.Name] and not tool:FindFirstChild("AmmoInClip") then
-                        pcall(function() sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel) end)
-                        task.wait(0.05)
+                        table.insert(toolsToSell, tool)
                     end
+                end
+                
+                for _, tool in ipairs(toolsToSell) do
+                    pcall(function() 
+                        sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel)
+                        soldCount = soldCount + 1
+                    end)
+                    task.wait(0.05)
                 end
             end
             
             -- Продажа из рук
             local c = getChar()
             if c then
+                local toolsToSell = {}
                 for _, tool in ipairs(c:GetChildren()) do
                     if tool:IsA("Tool") and not ignoredTools[tool.Name] and not tool:FindFirstChild("AmmoInClip") then
-                        pcall(function() sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel) end)
-                        task.wait(0.05)
+                        table.insert(toolsToSell, tool)
                     end
                 end
+                
+                for _, tool in ipairs(toolsToSell) do
+                    pcall(function() 
+                        sellRemote:FireServer("Action", "SellAll_" .. tool.Name, daniel)
+                        soldCount = soldCount + 1
+                    end)
+                    task.wait(0.05)
+                end
             end
+            
+            if soldCount > 0 then
+                print("[AUTO SELL] Продано предметов: " .. soldCount)
+            else
+                print("[AUTO SELL] Нет предметов для продажи")
+            end
+        else
+            print("[AUTO SELL] Remote или NPC не найдены")
         end
         
-        task.wait(CHECK_INTERVAL) -- Ждём минуту перед следующим запуском
+        task.wait(CHECK_INTERVAL)
     end
 end)
 

@@ -720,6 +720,7 @@ characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character
 end)
 
 local CHECK_INTERVAL = 300
+local LP = LocalPlayer
 
 local function getChar()
     return LocalPlayer.Character

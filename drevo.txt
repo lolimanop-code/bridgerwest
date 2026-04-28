@@ -6,29 +6,6 @@ local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
 
-local function killPlayer()
-    local character = LocalPlayer.Character  -- Берём АКТУАЛЬНОГО персонажа
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid.Health = 0
-        end
-    end
-end
-
-local function tpplayer(spot)
-	killPlayer()
-	local newCharacter = LocalPlayer.CharacterAdded:Wait()
-	newCharacter:WaitForChild("Humanoid")
-	wait(1)
-	if spot == "farm" then
-		LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-1478.921875, 78.54988861083984, -3867.71826171875)
-	elseif spot == "roka" then
-		LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-8044.02783203125, 67.37040710449219, -2285.8623046875)
-	end
-
-end
-
 local function waitForKey(keyCode)
     print("Ожидание нажатия: " .. tostring(keyCode))
     
@@ -148,19 +125,6 @@ end
 
 updateReferences()
 
-local ITEM_NAME = "Rokakaka Seed"  -- Название предмета для отслеживания
-
--- Функция, которая выполнится когда предмет появится
-local function onItemAdded(item)
-    if item.Name == ITEM_NAME then
-        print("[НАЙДЕН] Предмет '" .. ITEM_NAME .. "' появился в инвентаре!")
-        
-        -- 👇 ТВОЙ КОД ЗДЕСЬ (что должно произойти)
-
-        tpplayer("roka")
-		waitForKey(Enum.KeyCode.T)
-    end
-end
 
 -- Следим за появлением новых предметов
 local processed = false
@@ -202,49 +166,7 @@ local function equipAxe()
     end
 end
 
--- ============ ФУНКЦИЯ ЗАПУСКА МОНИТОРИНГА ============
-local function startItemMonitor()
-    if itemMonitorRunning then
-        print("[МОНИТОР] Уже запущен")
-        return
-    end
-    
-    itemMonitorRunning = true
-    itemMonitorThread = task.spawn(function()
-        while itemMonitorRunning do
-			task.wait(0.3)
-			
-			if not processed then
-				local backpack = LocalPlayer:FindFirstChild("Backpack")
-				if backpack then
-					local item = backpack:FindFirstChild(ITEM_NAME)
-					if item then
-						processed = true
-						print("[НАЙДЕН] Предмет '" .. ITEM_NAME .. "' появился в инвентаре!")
-						
-						toggleLoop()
-						tpplayer("roka")
-						waitForKey(Enum.KeyCode.T)
-						toggleLoop()
-						equipAxe()
-						task.wait(1)
-						processed = false
-					end
-				end
-			end
-		end
-    end)
-    print("[МОНИТОР] Запущен")
-end
 
--- ============ ПЕРЕКЛЮЧЕНИЕ МОНИТОРИНГА ============
-local function toggleItemMonitor()
-    if itemMonitorRunning then
-        stopItemMonitor()
-    else
-        startItemMonitor()
-    end
-end
 
 -- Проверяем уже существующие предметы
 if backpack then
@@ -265,7 +187,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
     if input.KeyCode == TOGGLE_KEY then
-		toggleItemMonitor()
         toggleLoop()
 		equipAxe()
     end

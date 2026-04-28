@@ -126,23 +126,6 @@ end
 updateReferences()
 
 
--- Следим за появлением новых предметов
-local processed = false
-
-local itemMonitorRunning = false
-local itemMonitorThread = nil
-local processed = false
-
--- ============ ФУНКЦИЯ ОСТАНОВКИ МОНИТОРИНГА ============
-local function stopItemMonitor()
-    itemMonitorRunning = false
-    if itemMonitorThread then
-        task.cancel(itemMonitorThread)
-        itemMonitorThread = nil
-    end
-    processed = false
-    print("[МОНИТОР] Остановлен")
-end
 
 local function equipAxe()
     if not humanoid or not backpack then
@@ -167,13 +150,6 @@ local function equipAxe()
 end
 
 
-
--- Проверяем уже существующие предметы
-if backpack then
-    for _, item in ipairs(backpack:GetChildren()) do
-        onItemAdded(item)
-    end
-end
 
 -- Когда персонаж появляется (в первый раз или после смерти) — обновляем ссылки
 LocalPlayer.CharacterAdded:Connect(function(character)

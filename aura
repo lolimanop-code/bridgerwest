@@ -1,0 +1,708 @@
+-- ============================================================
+-- GUI COSMIC: THE STRONGEST BATTLEGROUNDS (AURA ONLY)
+-- ============================================================
+
+if getgenv().TSBGUILoaded then return end
+getgenv().TSBGUILoaded = true
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+
+-- ============================================================
+-- НАСТРОЙКИ
+-- ============================================================
+
+getgenv().Aura = {
+    Target = nil,
+    TargetPlayer = nil,
+    Enabled = false,
+    Distance = 3,
+    DropdownOpen = false,
+    Key1 = false,
+    Key2 = false,
+    Key3 = false,
+    Key4 = false,
+    KeyG = false,
+}
+
+-- ============================================================
+-- SCREEN GUI
+-- ============================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TSBGUI"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ResetOnSpawn = false
+
+-- ============================================================
+-- ГЛАВНАЯ ПАНЕЛЬ
+-- ============================================================
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 540)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -170)
+MainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- ============================================================
+-- ПЕРЕТАСКИВАНИЕ
+-- ============================================================
+
+local isDragging = false
+local dragRelative = nil
+local guiInsetOffset = ScreenGui.IgnoreGuiInset and GuiService:GetGuiInset() or Vector2.zero
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 36)
+TitleBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
+
+local TitleCover = Instance.new("Frame")
+TitleCover.Size = UDim2.new(1, 0, 0.5, 0)
+TitleCover.Position = UDim2.new(0, 0, 0.5, 0)
+TitleCover.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+TitleCover.BorderSizePixel = 0
+TitleCover.Parent = TitleBar
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -20, 1, 0)
+TitleText.Position = UDim2.new(0, 14, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "TSB AURA"
+TitleText.TextColor3 = Color3.fromRGB(0, 255, 200)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 16
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+TitleBar.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = true
+        dragRelative = MainFrame.AbsolutePosition + MainFrame.AbsoluteSize * MainFrame.AnchorPoint - UserInputService:GetMouseLocation()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = false
+        dragRelative = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if isDragging and dragRelative then
+        local mousePos = UserInputService:GetMouseLocation()
+        local newPos = mousePos + dragRelative + guiInsetOffset
+        newPos = Vector2.new(math.clamp(newPos.X, -200, ScreenGui.AbsoluteSize.X - 80), math.clamp(newPos.Y, 0, ScreenGui.AbsoluteSize.Y - 60))
+        MainFrame.Position = UDim2.fromOffset(newPos.X, newPos.Y)
+    end
+end)
+
+-- ============================================================
+-- СОДЕРЖИМОЕ
+-- ============================================================
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -24, 1, -46)
+Content.Position = UDim2.new(0, 12, 0, 40)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+local ContentList = Instance.new("UIListLayout")
+ContentList.Padding = UDim.new(0, 8)
+ContentList.Parent = Content
+
+-- ============================================================
+-- ВЫБОР ЦЕЛИ
+-- ============================================================
+
+local TargetSection = Instance.new("Frame")
+TargetSection.Size = UDim2.new(1, 0, 0, 90)
+TargetSection.BackgroundTransparency = 1
+TargetSection.Parent = Content
+
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(1, 0, 0, 18)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "Target:"
+TargetLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
+TargetLabel.Font = Enum.Font.Gotham
+TargetLabel.TextSize = 12
+TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+TargetLabel.Parent = TargetSection
+
+local DropdownFrame = Instance.new("Frame")
+DropdownFrame.Size = UDim2.new(1, 0, 0, 32)
+DropdownFrame.Position = UDim2.new(0, 0, 0, 22)
+DropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+DropdownFrame.BorderSizePixel = 0
+DropdownFrame.Parent = TargetSection
+Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 5)
+
+local DropdownButton = Instance.new("TextButton")
+DropdownButton.Size = UDim2.new(1, 0, 1, 0)
+DropdownButton.BackgroundTransparency = 1
+DropdownButton.Text = ""
+DropdownButton.Parent = DropdownFrame
+
+local DropdownText = Instance.new("TextLabel")
+DropdownText.Size = UDim2.new(1, -35, 1, 0)
+DropdownText.Position = UDim2.new(0, 12, 0, 0)
+DropdownText.BackgroundTransparency = 1
+DropdownText.Text = "Select player..."
+DropdownText.TextColor3 = Color3.fromRGB(255, 255, 255)
+DropdownText.Font = Enum.Font.Gotham
+DropdownText.TextSize = 13
+DropdownText.TextXAlignment = Enum.TextXAlignment.Left
+DropdownText.Parent = DropdownFrame
+
+local DropdownArrow = Instance.new("TextLabel")
+DropdownArrow.Size = UDim2.new(0, 20, 1, 0)
+DropdownArrow.Position = UDim2.new(1, -26, 0, 0)
+DropdownArrow.BackgroundTransparency = 1
+DropdownArrow.Text = "▼"
+DropdownArrow.TextColor3 = Color3.fromRGB(200, 200, 200)
+DropdownArrow.Font = Enum.Font.GothamBold
+DropdownArrow.TextSize = 10
+DropdownArrow.Parent = DropdownFrame
+
+local PlayerList = Instance.new("Frame")
+PlayerList.Size = UDim2.new(1, 0, 0, 0)
+PlayerList.Position = UDim2.new(0, 0, 0, 58)
+PlayerList.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+PlayerList.BorderSizePixel = 1
+PlayerList.BorderColor3 = Color3.fromRGB(80, 80, 80)
+PlayerList.ClipsDescendants = true
+PlayerList.Visible = false
+PlayerList.ZIndex = 10
+PlayerList.Parent = TargetSection
+Instance.new("UICorner", PlayerList).CornerRadius = UDim.new(0, 5)
+
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(1, -6, 1, -6)
+PlayerScroll.Position = UDim2.new(0, 3, 0, 3)
+PlayerScroll.BackgroundTransparency = 1
+PlayerScroll.BorderSizePixel = 0
+PlayerScroll.ScrollBarThickness = 5
+PlayerScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 200)
+PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerScroll.Parent = PlayerList
+
+local PlayerScrollLayout = Instance.new("UIListLayout")
+PlayerScrollLayout.Parent = PlayerScroll
+
+local TargetStatus = Instance.new("TextLabel")
+TargetStatus.Size = UDim2.new(1, 0, 0, 16)
+TargetStatus.Position = UDim2.new(0, 0, 0, 62)
+TargetStatus.BackgroundTransparency = 1
+TargetStatus.Text = "No target selected"
+TargetStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+TargetStatus.Font = Enum.Font.Gotham
+TargetStatus.TextSize = 10
+TargetStatus.TextXAlignment = Enum.TextXAlignment.Left
+TargetStatus.Parent = TargetSection
+
+local function UpdatePlayerList()
+    for _, child in ipairs(PlayerScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    local players = Players:GetPlayers()
+    local count = 0
+    
+    for _, player in ipairs(players) do
+        if player == LocalPlayer then continue end
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 30)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.BorderSizePixel = 0
+        btn.Text = ""
+        btn.ZIndex = 11
+        btn.Parent = PlayerScroll
+        
+        local btnName = Instance.new("TextLabel")
+        btnName.Size = UDim2.new(1, -50, 1, 0)
+        btnName.Position = UDim2.new(0, 12, 0, 0)
+        btnName.BackgroundTransparency = 1
+        btnName.Text = player.Name
+        btnName.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btnName.Font = Enum.Font.GothamBold
+        btnName.TextSize = 13
+        btnName.TextXAlignment = Enum.TextXAlignment.Left
+        btnName.ZIndex = 11
+        btnName.Parent = btn
+        
+        local char = player.Character
+        local hp = char and char:FindFirstChild("Humanoid") and char.Humanoid.Health or 0
+        local hpDot = Instance.new("Frame")
+        hpDot.Size = UDim2.new(0, 12, 0, 12)
+        hpDot.Position = UDim2.new(1, -30, 0.5, -6)
+        hpDot.BackgroundColor3 = hp > 0 and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        hpDot.BorderSizePixel = 0
+        hpDot.ZIndex = 11
+        Instance.new("UICorner", hpDot).CornerRadius = UDim.new(1, 0)
+        hpDot.Parent = btn
+        
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end)
+        
+        btn.MouseButton1Click:Connect(function()
+            getgenv().Aura.Target = player.Name
+            getgenv().Aura.TargetPlayer = player
+            DropdownText.Text = player.Name
+            DropdownText.TextColor3 = Color3.fromRGB(0, 255, 200)
+            TargetStatus.Text = "Target: " .. player.Name
+            TargetStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
+            PlayerList.Visible = false
+            getgenv().Aura.DropdownOpen = false
+            DropdownArrow.Text = "▼"
+        end)
+        
+        count = count + 1
+    end
+    
+    if count == 0 then
+        local noPlayers = Instance.new("TextLabel")
+        noPlayers.Size = UDim2.new(1, 0, 0, 30)
+        noPlayers.BackgroundTransparency = 1
+        noPlayers.Text = "No players on server"
+        noPlayers.TextColor3 = Color3.fromRGB(200, 200, 200)
+        noPlayers.Font = Enum.Font.Gotham
+        noPlayers.TextSize = 12
+        noPlayers.Parent = PlayerScroll
+    end
+    
+    PlayerList.Size = UDim2.new(1, 0, 0, math.min(count, 6) * 30 + 6)
+end
+
+DropdownButton.MouseButton1Click:Connect(function()
+    getgenv().Aura.DropdownOpen = not getgenv().Aura.DropdownOpen
+    if getgenv().Aura.DropdownOpen then
+        UpdatePlayerList()
+        PlayerList.Visible = true
+        DropdownArrow.Text = "▲"
+    else
+        PlayerList.Visible = false
+        DropdownArrow.Text = "▼"
+    end
+end)
+
+-- ============================================================
+-- СЛАЙДЕР
+-- ============================================================
+
+local function CreateSlider(parent, label, min, max, default, color, setter)
+    local Section = Instance.new("Frame")
+    Section.Size = UDim2.new(1, 0, 0, 55)
+    Section.BackgroundTransparency = 1
+    Section.Parent = parent
+    
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 20)
+    Header.BackgroundTransparency = 1
+    Header.Parent = Section
+    
+    local LabelText = Instance.new("TextLabel")
+    LabelText.Size = UDim2.new(0, 120, 1, 0)
+    LabelText.BackgroundTransparency = 1
+    LabelText.Text = label .. ": " .. default
+    LabelText.TextColor3 = Color3.fromRGB(210, 210, 210)
+    LabelText.Font = Enum.Font.Gotham
+    LabelText.TextSize = 13
+    LabelText.TextXAlignment = Enum.TextXAlignment.Left
+    LabelText.Parent = Header
+    
+    local ValueText = Instance.new("TextLabel")
+    ValueText.Size = UDim2.new(0, 40, 1, 0)
+    ValueText.Position = UDim2.new(1, -40, 0, 0)
+    ValueText.BackgroundTransparency = 1
+    ValueText.Text = tostring(default)
+    ValueText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ValueText.Font = Enum.Font.GothamBold
+    ValueText.TextSize = 14
+    ValueText.TextXAlignment = Enum.TextXAlignment.Right
+    ValueText.Parent = Header
+    
+    local HitArea = Instance.new("TextButton")
+    HitArea.Size = UDim2.new(1, 0, 0, 30)
+    HitArea.Position = UDim2.new(0, 0, 0, 15)
+    HitArea.BackgroundTransparency = 1
+    HitArea.Text = ""
+    HitArea.AutoButtonColor = false
+    HitArea.ZIndex = 10
+    HitArea.Parent = Section
+    
+    local Track = Instance.new("Frame")
+    Track.Size = UDim2.new(1, 0, 0, 14)
+    Track.Position = UDim2.new(0, 0, 0, 23)
+    Track.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    Track.BorderSizePixel = 0
+    Track.Parent = Section
+    Instance.new("UICorner", Track).CornerRadius = UDim.new(0, 7)
+    
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = color
+    Fill.BorderSizePixel = 0
+    Fill.Parent = Track
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 7)
+    
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0, 22, 0, 22)
+    Knob.Position = UDim2.new((default - min) / (max - min), -11, 0, 19)
+    Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Knob.BorderSizePixel = 0
+    Knob.ZIndex = 5
+    Knob.Parent = Section
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+    
+    local sliderDragging = false
+    
+    local function Update(val)
+        local percent = (val - min) / (max - min)
+        Fill.Size = UDim2.new(percent, 0, 1, 0)
+        Knob.Position = UDim2.new(percent, -11, 0, 19)
+        LabelText.Text = label .. ": " .. val
+        ValueText.Text = tostring(val)
+        setter(val)
+    end
+    
+    local function UpdateFromMouse(mouseX)
+        local trackPos = Track.AbsolutePosition
+        local trackSize = Track.AbsoluteSize
+        local relX = math.clamp(mouseX - trackPos.X, 0, trackSize.X)
+        local percent = relX / trackSize.X
+        local val = math.floor(min + percent * (max - min) + 0.5)
+        val = math.clamp(val, min, max)
+        Update(val)
+    end
+    
+    HitArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            sliderDragging = true
+            UpdateFromMouse(input.Position.X)
+        end
+    end)
+    
+    HitArea.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            sliderDragging = false
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if sliderDragging then
+            UpdateFromMouse(UserInputService:GetMouseLocation().X)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            sliderDragging = false
+        end
+    end)
+    
+    return { Update = Update }
+end
+
+-- ============================================================
+-- ТОГЛ
+-- ============================================================
+
+local function CreateToggle(parent, label, default, color, setter)
+    local Section = Instance.new("Frame")
+    Section.Size = UDim2.new(1, 0, 0, 35)
+    Section.BackgroundTransparency = 1
+    Section.Parent = parent
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 160, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = label
+    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Section
+    
+    local Switch = Instance.new("TextButton")
+    Switch.Size = UDim2.new(0, 44, 0, 22)
+    Switch.Position = UDim2.new(1, -44, 0.5, -11)
+    Switch.BackgroundColor3 = default and color or Color3.fromRGB(60, 60, 60)
+    Switch.BorderSizePixel = 0
+    Switch.Text = ""
+    Switch.AutoButtonColor = false
+    Switch.Parent = Section
+    Instance.new("UICorner", Switch).CornerRadius = UDim.new(1, 0)
+    
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 18, 0, 18)
+    Indicator.Position = default and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Indicator.BorderSizePixel = 0
+    Indicator.Parent = Switch
+    Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+    
+    local enabled = default
+    
+    Switch.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        setter(enabled)
+        if enabled then
+            TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
+            TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = UDim2.new(1, -20, 0.5, -9)}):Play()
+        else
+            TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
+            TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -9)}):Play()
+        end
+    end)
+    
+    return { Set = function(val) enabled = val end }
+end
+
+-- ============================================================
+-- НАПОЛНЕНИЕ
+-- ============================================================
+
+local div1 = Instance.new("Frame")
+div1.Size = UDim2.new(1, 0, 0, 1)
+div1.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+div1.BorderSizePixel = 0
+div1.Parent = Content
+
+CreateSlider(Content, "Distance", 1, 15, getgenv().Aura.Distance, Color3.fromRGB(200, 100, 0), function(val) getgenv().Aura.Distance = val end)
+
+CreateToggle(Content, "Spam [1]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key1 = val end)
+CreateToggle(Content, "Spam [2]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key2 = val end)
+CreateToggle(Content, "Spam [3]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key3 = val end)
+CreateToggle(Content, "Spam [4]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key4 = val end)
+CreateToggle(Content, "Spam [G]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.KeyG = val end)
+
+local div2 = Instance.new("Frame")
+div2.Size = UDim2.new(1, 0, 0, 1)
+div2.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+div2.BorderSizePixel = 0
+div2.Parent = Content
+
+local auraStatus = Instance.new("TextLabel")
+auraStatus.Size = UDim2.new(1, 0, 0, 20)
+auraStatus.BackgroundTransparency = 1
+auraStatus.Text = "Status: IDLE"
+auraStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+auraStatus.Font = Enum.Font.Gotham
+auraStatus.TextSize = 12
+auraStatus.TextXAlignment = Enum.TextXAlignment.Center
+auraStatus.Parent = Content
+
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, 0, 0, 40)
+StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+StartBtn.BorderSizePixel = 0
+StartBtn.Text = "START"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 16
+StartBtn.AutoButtonColor = false
+StartBtn.Parent = Content
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 6)
+
+StartBtn.MouseButton1Click:Connect(function()
+    local enabled = not getgenv().Aura.Enabled
+    getgenv().Aura.Enabled = enabled
+    
+    if enabled then
+        if not getgenv().Aura.TargetPlayer then
+            auraStatus.Text = "SELECT TARGET FIRST!"
+            auraStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
+            getgenv().Aura.Enabled = false
+            return
+        end
+        StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        StartBtn.Text = "STOP"
+        auraStatus.Text = "Status: RUNNING"
+        auraStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        StartBtn.Text = "START"
+        auraStatus.Text = "Status: STOPPED"
+        auraStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end)
+
+StartBtn.MouseEnter:Connect(function()
+    if not getgenv().Aura.Enabled then StartBtn.BackgroundColor3 = Color3.fromRGB(200, 20, 20) end
+end)
+StartBtn.MouseLeave:Connect(function()
+    if not getgenv().Aura.Enabled then StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0) end
+end)
+
+print("GUI loaded!")
+
+-- ============================================================
+-- МОДУЛЬ AURA
+-- ============================================================
+
+local Workspace = game:GetService("Workspace")
+local auraConnection = nil
+local spamActive = false
+local auraAngle = 0
+local lastPosChange = 0
+
+local function IsMouseOverGUI()
+    if not MainFrame or not MainFrame.Visible then return false end
+    local mousePos = UserInputService:GetMouseLocation()
+    local framePos = MainFrame.AbsolutePosition
+    local frameSize = MainFrame.AbsoluteSize
+    return mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X
+       and mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y
+end
+
+local function ClickLMB()
+    if IsMouseOverGUI() then return end
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+
+local function PressKey(key)
+    if IsMouseOverGUI() then return end
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+local function StopAura()
+    if auraConnection then auraConnection:Disconnect(); auraConnection = nil end
+    spamActive = false
+end
+
+local function SpamLoop()
+    -- Цикл 1: Спам ЛКМ каждые 0.1 сек
+    task.spawn(function()
+        while spamActive do
+            if not spamActive then break end
+            ClickLMB()
+            task.wait(0.1)
+        end
+    end)
+    
+    -- Цикл 2: Спам клавиш с задержкой 0.15 сек между ними
+    task.spawn(function()
+        while spamActive do
+            local cfg = getgenv().Aura
+            
+            if not spamActive then break end
+            if cfg.Key1 then PressKey(Enum.KeyCode.One); task.wait(0.1) end
+            
+            if not spamActive then break end
+            if cfg.Key2 then PressKey(Enum.KeyCode.Two); task.wait(0.1) end
+            
+            if not spamActive then break end
+            if cfg.Key3 then PressKey(Enum.KeyCode.Three); task.wait(0.1) end
+            
+            if not spamActive then break end
+            if cfg.Key4 then PressKey(Enum.KeyCode.Four); task.wait(0.1) end
+            
+            if not spamActive then break end
+            if cfg.KeyG then PressKey(Enum.KeyCode.G); task.wait(0.1) end
+            
+            if not spamActive then break end
+        end
+    end)
+end
+
+local function StartAura(target, distance)
+    StopAura()
+    
+    auraConnection = RunService.Heartbeat:Connect(function()
+        if not target then StopAura() return end
+        local myChar = LocalPlayer.Character
+        if not myChar then return end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+        
+        local targetPos = Vector3.zero
+        if target.Character then
+            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                targetPos = targetRoot.Position
+            elseif target.Character:FindFirstChild("Head") then
+                targetPos = target.Character.Head.Position
+            end
+        else
+            return
+        end
+        
+        if tick() - lastPosChange > 3 then
+            lastPosChange = tick()
+            auraAngle = math.random(0, 360)
+        end
+        
+        auraAngle = auraAngle + 1.5
+        local rad = math.rad(auraAngle)
+        local yOffset = math.sin(tick() * 1.5) * 1.5
+        local offset = Vector3.new(math.cos(rad) * distance, yOffset, math.sin(rad) * distance)
+        myRoot.CFrame = CFrame.new(targetPos + offset, targetPos)
+    end)
+    
+    spamActive = true
+    task.spawn(SpamLoop)
+end
+
+task.spawn(function()
+    while true do
+        local cfg = getgenv().Aura
+        if not cfg.Enabled then StopAura(); repeat task.wait(0.3) until getgenv().Aura.Enabled end
+        local target = cfg.TargetPlayer
+        if not target then StopAura(); task.wait(1); continue end
+        if not auraConnection then StartAura(target, cfg.Distance) end
+        task.wait(0.2)
+    end
+end)
+
+print("[Aura] Loaded!")
+-- ============================================================
+-- ПЕРЕКЛЮЧЕНИЕ ПО КЛАВИШЕ X
+-- ============================================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.X then
+        local enabled = not getgenv().Aura.Enabled
+        getgenv().Aura.Enabled = enabled
+        
+        if enabled then
+            if not getgenv().Aura.TargetPlayer then
+                auraStatus.Text = "SELECT TARGET FIRST!"
+                auraStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
+                getgenv().Aura.Enabled = false
+                return
+            end
+            StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            StartBtn.Text = "STOP | X"
+            auraStatus.Text = "Status: RUNNING"
+            auraStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
+        else
+            StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+            StartBtn.Text = "START | X"
+            auraStatus.Text = "Status: STOPPED"
+            auraStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+        end
+    end
+end)
+print("[X Keybind] Press X to toggle AURA")
+
+print("========== SCRIPT LOADED ==========")

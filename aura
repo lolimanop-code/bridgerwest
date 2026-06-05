@@ -697,7 +697,7 @@ print("GUI loaded!")
 print("[X] Press X to toggle AURA")
 
 -- ============================================================
--- МОДУЛЬ AURA v12.1 (UNDERGROUND СМЕЩЁН ЗА СПИНУ)
+-- МОДУЛЬ AURA v13 (ПОИСК ПО НИКУ — НЕ ТЕРЯЕТ ЦЕЛЬ)
 -- ============================================================
 
 local Workspace = game:GetService("Workspace")
@@ -735,6 +735,17 @@ local function StopAura()
     end
 end
 
+-- Ищет игрока по нику (даже после перезахода)
+local function FindTargetByName(name)
+    if not name then return nil end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name == name then
+            return player
+        end
+    end
+    return nil
+end
+
 local function GetTargetPos(target)
     if not target or not target.Character then return nil end
     local hrp = target.Character:FindFirstChild("HumanoidRootPart")
@@ -744,15 +755,21 @@ local function GetTargetPos(target)
     return nil
 end
 
-local function StartAura(target, distance)
+local function StartAura(targetName, distance)
     StopAura()
     spamActive = true
     
     moveConnection = RunService.Heartbeat:Connect(function()
+        -- КАЖДЫЙ КАДР ищем цель по нику
+        local target = FindTargetByName(targetName)
+        
         local myChar = LocalPlayer.Character
         if not myChar then return end
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
+        
+        -- Если цель не найдена (вышла/перезаходит) — ждём
+        if not target then return end
         
         local targetPos = GetTargetPos(target)
         if not targetPos then return end
@@ -784,15 +801,11 @@ local function StartAura(target, distance)
             
         elseif mode == "Underground" then
             local undergroundDist = math.min(distance, 4)
-            
-            -- Смещение ЗА спину (туда же куда и Behind)
             local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
             if targetRoot then
                 local look = targetRoot.CFrame.LookVector
-                -- Позиция: за спиной на 2 стада + вниз
                 myPos = targetPos - look * 2 - Vector3.new(0, undergroundDist, 0)
             else
-                -- Если нет HRP — просто под цель
                 myPos = targetPos - Vector3.new(0, undergroundDist, 0)
             end
         end
@@ -802,7 +815,6 @@ local function StartAura(target, distance)
         end
     end)
     
-    -- Спам
     task.spawn(function()
         while spamActive do
             ClickLMB()
@@ -826,16 +838,16 @@ task.spawn(function()
             repeat task.wait(0.3) until getgenv().Aura.Enabled
         end
         
-        local target = getgenv().Aura.TargetPlayer
-        if not target then
+        local targetName = getgenv().Aura.Target  -- ИСПОЛЬЗУЕМ НИК
+        if not targetName then
             StopAura()
             task.wait(1)
         elseif not spamActive then
-            StartAura(target, getgenv().Aura.Distance)
+            StartAura(targetName, getgenv().Aura.Distance)
         end
         
         task.wait(0.3)
     end
 end)
 
-print("[Aura] v12.1 loaded! Underground shifted behind target")
+print("[Aura] v13 loaded! Follows by nickname, survives rejoins")

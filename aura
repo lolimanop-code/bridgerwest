@@ -1,5 +1,5 @@
 -- ============================================================
--- GUI COSMIC: THE STRONGEST BATTLEGROUNDS (AURA ONLY)
+-- GUI COSMIC: THE STRONGEST BATTLEGROUNDS (AURA + MODES + X KEY)
 -- ============================================================
 
 if getgenv().TSBGUILoaded then return end
@@ -22,7 +22,9 @@ getgenv().Aura = {
     TargetPlayer = nil,
     Enabled = false,
     Distance = 3,
+    Mode = "Circle",  -- Circle / Behind / Underground
     DropdownOpen = false,
+    ModeOpen = false,
     Key1 = false,
     Key2 = false,
     Key3 = false,
@@ -45,8 +47,8 @@ ScreenGui.ResetOnSpawn = false
 -- ============================================================
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 280, 0, 540)
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -170)
+MainFrame.Size = UDim2.new(0, 280, 0, 600)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -124,8 +126,124 @@ local ContentList = Instance.new("UIListLayout")
 ContentList.Padding = UDim.new(0, 8)
 ContentList.Parent = Content
 
+
 -- ============================================================
--- ВЫБОР ЦЕЛИ
+-- ФУНКЦИЯ: ВЫПАДАЮЩИЙ СПИСОК (ИСПРАВЛЕН)
+-- ============================================================
+
+local function CreateDropdown(parent, label, options, default, callback)
+    local Section = Instance.new("Frame")
+    Section.Size = UDim2.new(1, 0, 0, 60)
+    Section.BackgroundTransparency = 1
+    Section.Parent = parent
+    
+    local LabelText = Instance.new("TextLabel")
+    LabelText.Size = UDim2.new(1, 0, 0, 18)
+    LabelText.BackgroundTransparency = 1
+    LabelText.Text = label .. ": " .. default
+    LabelText.TextColor3 = Color3.fromRGB(160, 160, 160)
+    LabelText.Font = Enum.Font.Gotham
+    LabelText.TextSize = 12
+    LabelText.TextXAlignment = Enum.TextXAlignment.Left
+    LabelText.Parent = Section
+    
+    local DropdownFrame = Instance.new("Frame")
+    DropdownFrame.Size = UDim2.new(1, 0, 0, 32)
+    DropdownFrame.Position = UDim2.new(0, 0, 0, 22)
+    DropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    DropdownFrame.BorderSizePixel = 0
+    DropdownFrame.Parent = Section
+    Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 5)
+    
+    local DropdownBtn = Instance.new("TextButton")
+    DropdownBtn.Size = UDim2.new(1, 0, 1, 0)
+    DropdownBtn.BackgroundTransparency = 1
+    DropdownBtn.Text = ""
+    DropdownBtn.Parent = DropdownFrame
+    
+    local DropdownText = Instance.new("TextLabel")
+    DropdownText.Size = UDim2.new(1, -35, 1, 0)
+    DropdownText.Position = UDim2.new(0, 12, 0, 0)
+    DropdownText.BackgroundTransparency = 1
+    DropdownText.Text = default
+    DropdownText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DropdownText.Font = Enum.Font.Gotham
+    DropdownText.TextSize = 13
+    DropdownText.TextXAlignment = Enum.TextXAlignment.Left
+    DropdownText.Parent = DropdownFrame
+    
+    local Arrow = Instance.new("TextLabel")
+    Arrow.Size = UDim2.new(0, 20, 1, 0)
+    Arrow.Position = UDim2.new(1, -26, 0, 0)
+    Arrow.BackgroundTransparency = 1
+    Arrow.Text = "▼"
+    Arrow.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Arrow.Font = Enum.Font.GothamBold
+    Arrow.TextSize = 10
+    Arrow.Parent = DropdownFrame
+    
+    -- Список теперь в MainFrame чтобы не обрезался
+    local List = Instance.new("Frame")
+    List.Size = UDim2.new(1, 0, 0, #options * 28)
+    List.Position = UDim2.new(0, 0, 0, 58)
+    List.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    List.BorderSizePixel = 1
+    List.BorderColor3 = Color3.fromRGB(80, 80, 80)
+    List.ClipsDescendants = false  -- НЕ ОБРЕЗАЕМ
+    List.Visible = false
+    List.ZIndex = 100  -- ПОВЕРХ ВСЕГО
+    List.Parent = Section
+    
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Parent = List
+    
+    local isOpen = false
+    
+    for _, option in ipairs(options) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 28)
+        optBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        optBtn.BorderSizePixel = 0
+        optBtn.Text = ""
+        optBtn.ZIndex = 101
+        optBtn.Parent = List
+        
+        local optText = Instance.new("TextLabel")
+        optText.Size = UDim2.new(1, -10, 1, 0)
+        optText.Position = UDim2.new(0, 12, 0, 0)
+        optText.BackgroundTransparency = 1
+        optText.Text = option
+        optText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optText.Font = Enum.Font.GothamBold
+        optText.TextSize = 13
+        optText.TextXAlignment = Enum.TextXAlignment.Left
+        optText.ZIndex = 101
+        optText.Parent = optBtn
+        
+        optBtn.MouseEnter:Connect(function() optBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70) end)
+        optBtn.MouseLeave:Connect(function() optBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end)
+        
+        optBtn.MouseButton1Click:Connect(function()
+            DropdownText.Text = option
+            LabelText.Text = label .. ": " .. option
+            List.Visible = false
+            isOpen = false
+            Arrow.Text = "▼"
+            callback(option)
+        end)
+    end
+    
+    DropdownBtn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        List.Visible = isOpen
+        Arrow.Text = isOpen and "▲" or "▼"
+    end)
+    
+    return { SetText = function(t) DropdownText.Text = t; LabelText.Text = label .. ": " .. t end }
+end
+
+-- ============================================================
+-- ВЫБОР ЦЕЛИ (ИСПОЛЬЗУЕМ ОБЩУЮ ФУНКЦИЮ)
 -- ============================================================
 
 local TargetSection = Instance.new("Frame")
@@ -487,6 +605,17 @@ div1.Parent = Content
 
 CreateSlider(Content, "Distance", 1, 15, getgenv().Aura.Distance, Color3.fromRGB(200, 100, 0), function(val) getgenv().Aura.Distance = val end)
 
+-- ВЫПАДАЮЩИЙ СПИСОК РЕЖИМОВ
+CreateDropdown(Content, "Mode", {"Circle", "Behind", "Underground"}, getgenv().Aura.Mode, function(val)
+    getgenv().Aura.Mode = val
+end)
+
+local divMode = Instance.new("Frame")
+divMode.Size = UDim2.new(1, 0, 0, 1)
+divMode.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+divMode.BorderSizePixel = 0
+divMode.Parent = Content
+
 CreateToggle(Content, "Spam [1]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key1 = val end)
 CreateToggle(Content, "Spam [2]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key2 = val end)
 CreateToggle(Content, "Spam [3]", false, Color3.fromRGB(200, 150, 0), function(val) getgenv().Aura.Key3 = val end)
@@ -513,7 +642,7 @@ local StartBtn = Instance.new("TextButton")
 StartBtn.Size = UDim2.new(1, 0, 0, 40)
 StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 StartBtn.BorderSizePixel = 0
-StartBtn.Text = "START"
+StartBtn.Text = "START | X"
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.Font = Enum.Font.GothamBold
 StartBtn.TextSize = 16
@@ -521,7 +650,7 @@ StartBtn.AutoButtonColor = false
 StartBtn.Parent = Content
 Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 6)
 
-StartBtn.MouseButton1Click:Connect(function()
+local function ToggleAura()
     local enabled = not getgenv().Aura.Enabled
     getgenv().Aura.Enabled = enabled
     
@@ -533,16 +662,18 @@ StartBtn.MouseButton1Click:Connect(function()
             return
         end
         StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        StartBtn.Text = "STOP"
+        StartBtn.Text = "STOP | X"
         auraStatus.Text = "Status: RUNNING"
         auraStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
         StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-        StartBtn.Text = "START"
+        StartBtn.Text = "START | X"
         auraStatus.Text = "Status: STOPPED"
         auraStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
     end
-end)
+end
+
+StartBtn.MouseButton1Click:Connect(ToggleAura)
 
 StartBtn.MouseEnter:Connect(function()
     if not getgenv().Aura.Enabled then StartBtn.BackgroundColor3 = Color3.fromRGB(200, 20, 20) end
@@ -551,14 +682,26 @@ StartBtn.MouseLeave:Connect(function()
     if not getgenv().Aura.Enabled then StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0) end
 end)
 
+-- ============================================================
+-- ПЕРЕКЛЮЧЕНИЕ ПО КЛАВИШЕ X
+-- ============================================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.X then
+        ToggleAura()
+    end
+end)
+
 print("GUI loaded!")
+print("[X] Press X to toggle AURA")
 
 -- ============================================================
--- МОДУЛЬ AURA
+-- МОДУЛЬ AURA v12.1 (UNDERGROUND СМЕЩЁН ЗА СПИНУ)
 -- ============================================================
 
 local Workspace = game:GetService("Workspace")
-local auraConnection = nil
+local moveConnection = nil
 local spamActive = false
 local auraAngle = 0
 local lastPosChange = 0
@@ -585,124 +728,114 @@ local function PressKey(key)
 end
 
 local function StopAura()
-    if auraConnection then auraConnection:Disconnect(); auraConnection = nil end
     spamActive = false
+    if moveConnection then 
+        moveConnection:Disconnect()
+        moveConnection = nil 
+    end
 end
 
-local function SpamLoop()
-    -- Цикл 1: Спам ЛКМ каждые 0.1 сек
-    task.spawn(function()
-        while spamActive do
-            if not spamActive then break end
-            ClickLMB()
-            task.wait(0.1)
-        end
-    end)
-    
-    -- Цикл 2: Спам клавиш с задержкой 0.15 сек между ними
-    task.spawn(function()
-        while spamActive do
-            local cfg = getgenv().Aura
-            
-            if not spamActive then break end
-            if cfg.Key1 then PressKey(Enum.KeyCode.One); task.wait(0.1) end
-            
-            if not spamActive then break end
-            if cfg.Key2 then PressKey(Enum.KeyCode.Two); task.wait(0.1) end
-            
-            if not spamActive then break end
-            if cfg.Key3 then PressKey(Enum.KeyCode.Three); task.wait(0.1) end
-            
-            if not spamActive then break end
-            if cfg.Key4 then PressKey(Enum.KeyCode.Four); task.wait(0.1) end
-            
-            if not spamActive then break end
-            if cfg.KeyG then PressKey(Enum.KeyCode.G); task.wait(0.1) end
-            
-            if not spamActive then break end
-        end
-    end)
+local function GetTargetPos(target)
+    if not target or not target.Character then return nil end
+    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then return hrp.Position end
+    local head = target.Character:FindFirstChild("Head")
+    if head then return head.Position end
+    return nil
 end
 
 local function StartAura(target, distance)
     StopAura()
+    spamActive = true
     
-    auraConnection = RunService.Heartbeat:Connect(function()
-        if not target then StopAura() return end
+    moveConnection = RunService.Heartbeat:Connect(function()
         local myChar = LocalPlayer.Character
         if not myChar then return end
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
         
-        local targetPos = Vector3.zero
-        if target.Character then
-            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                targetPos = targetRoot.Position
-            elseif target.Character:FindFirstChild("Head") then
-                targetPos = target.Character.Head.Position
+        local targetPos = GetTargetPos(target)
+        if not targetPos then return end
+        
+        local mode = getgenv().Aura.Mode
+        local myPos
+        
+        if mode == "Circle" then
+            if tick() - lastPosChange > 3 then
+                lastPosChange = tick()
+                auraAngle = math.random(0, 360)
             end
-        else
-            return
+            auraAngle = auraAngle + 1.5
+            local rad = math.rad(auraAngle)
+            myPos = targetPos + Vector3.new(
+                math.cos(rad) * distance,
+                math.sin(tick() * 1.5) * 1.5,
+                math.sin(rad) * distance
+            )
+            
+        elseif mode == "Behind" then
+            local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local look = targetRoot.CFrame.LookVector
+                myPos = targetPos - look * distance
+            else
+                myPos = targetPos + Vector3.new(0, 0, distance)
+            end
+            
+        elseif mode == "Underground" then
+            local undergroundDist = math.min(distance, 4)
+            
+            -- Смещение ЗА спину (туда же куда и Behind)
+            local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local look = targetRoot.CFrame.LookVector
+                -- Позиция: за спиной на 2 стада + вниз
+                myPos = targetPos - look * 2 - Vector3.new(0, undergroundDist, 0)
+            else
+                -- Если нет HRP — просто под цель
+                myPos = targetPos - Vector3.new(0, undergroundDist, 0)
+            end
         end
         
-        if tick() - lastPosChange > 3 then
-            lastPosChange = tick()
-            auraAngle = math.random(0, 360)
+        if myPos then
+            myRoot.CFrame = CFrame.new(myPos, targetPos)
         end
-        
-        auraAngle = auraAngle + 1.5
-        local rad = math.rad(auraAngle)
-        local yOffset = math.sin(tick() * 1.5) * 1.5
-        local offset = Vector3.new(math.cos(rad) * distance, yOffset, math.sin(rad) * distance)
-        myRoot.CFrame = CFrame.new(targetPos + offset, targetPos)
     end)
     
-    spamActive = true
-    task.spawn(SpamLoop)
+    -- Спам
+    task.spawn(function()
+        while spamActive do
+            ClickLMB()
+            
+            local cfg = getgenv().Aura
+            if cfg.Key1 then PressKey(Enum.KeyCode.One) end
+            if cfg.Key2 then PressKey(Enum.KeyCode.Two) end
+            if cfg.Key3 then PressKey(Enum.KeyCode.Three) end
+            if cfg.Key4 then PressKey(Enum.KeyCode.Four) end
+            if cfg.KeyG then PressKey(Enum.KeyCode.G) end
+            
+            task.wait(0.1)
+        end
+    end)
 end
 
 task.spawn(function()
     while true do
-        local cfg = getgenv().Aura
-        if not cfg.Enabled then StopAura(); repeat task.wait(0.3) until getgenv().Aura.Enabled end
-        local target = cfg.TargetPlayer
-        if not target then StopAura(); task.wait(1); continue end
-        if not auraConnection then StartAura(target, cfg.Distance) end
-        task.wait(0.2)
-    end
-end)
-
-print("[Aura] Loaded!")
--- ============================================================
--- ПЕРЕКЛЮЧЕНИЕ ПО КЛАВИШЕ X
--- ============================================================
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.X then
-        local enabled = not getgenv().Aura.Enabled
-        getgenv().Aura.Enabled = enabled
-        
-        if enabled then
-            if not getgenv().Aura.TargetPlayer then
-                auraStatus.Text = "SELECT TARGET FIRST!"
-                auraStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
-                getgenv().Aura.Enabled = false
-                return
-            end
-            StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-            StartBtn.Text = "STOP | X"
-            auraStatus.Text = "Status: RUNNING"
-            auraStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
-        else
-            StartBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-            StartBtn.Text = "START | X"
-            auraStatus.Text = "Status: STOPPED"
-            auraStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+        if not getgenv().Aura.Enabled then
+            StopAura()
+            repeat task.wait(0.3) until getgenv().Aura.Enabled
         end
+        
+        local target = getgenv().Aura.TargetPlayer
+        if not target then
+            StopAura()
+            task.wait(1)
+        elseif not spamActive then
+            StartAura(target, getgenv().Aura.Distance)
+        end
+        
+        task.wait(0.3)
     end
 end)
-print("[X Keybind] Press X to toggle AURA")
 
-print("========== SCRIPT LOADED ==========")
+print("[Aura] v12.1 loaded! Underground shifted behind target")
